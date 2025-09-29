@@ -1,0 +1,45 @@
+# Enable PHP execution
+<Files "*.php">
+    SetHandler application/x-httpd-php
+</Files>
+
+# Allow access to the directory
+Options +Indexes +FollowSymLinks
+
+# Set default index file
+DirectoryIndex index.php index.html
+
+# Enable rewrite engine for clean URLs (optional)
+RewriteEngine On
+
+# Prevent access to sensitive files
+<Files "participants.txt">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "assignments.txt">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files ".htaccess">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Error pages (optional)
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
