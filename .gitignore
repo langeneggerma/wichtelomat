@@ -45,11 +45,17 @@ composer.phar
 vendor/
 .env
 
-# Development files
+# Development and test files
 test.php
 debug.php
 demo.php
 test-persistence.html
+test-persistence-simple.html
+test-live.php
+test-js-isolated.html
+test-final.html
+test-complete.html
+test-persistence-quick.php
 
 # Backup files
 backup/

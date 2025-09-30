@@ -84,23 +84,58 @@ class Wichtelomat {
     
     init() {
         this.setupEventListeners();
-        this.startAutoUpdate();
-        this.updateHeartbeat();
         this.assignmentsWereReady = false; // Track if assignments were already ready
         
-        // Load stored assignment on page load
+        // Load stored assignment on page load - do this first
         this.loadStoredAssignmentOnInit();
+        
+        // Then start auto-updates and heartbeat
+        this.startAutoUpdate();
+        this.updateHeartbeat();
     }
     
     loadStoredAssignmentOnInit() {
-        // Check if we have a stored assignment and session is started
-        const storedAssignment = this.getStoredAssignment();
-        if (storedAssignment && this.username) {
-            // Check session status first
-            setTimeout(() => {
-                this.updatePageData();
-            }, 500);
-        }
+        // Always check for stored assignment on page load
+        setTimeout(() => {
+            console.log('Loading stored assignment on init...');
+            console.log('Username:', this.username);
+            console.log('Session ID:', this.sessionId);
+            
+            if (!this.username || !this.sessionId) {
+                console.log('Username or session ID missing, skipping stored assignment check');
+                return;
+            }
+            
+            // Check for stored assignment
+            const storedAssignment = this.getStoredAssignment();
+            console.log('Stored assignment:', storedAssignment);
+            
+            const userAssignmentEl = document.getElementById('user-assignment');
+            if (!userAssignmentEl) {
+                console.log('user-assignment element not found');
+                return;
+            }
+            
+            if (storedAssignment) {
+                // Immediately show stored assignment
+                console.log('Displaying stored assignment immediately');
+                userAssignmentEl.innerHTML = this.createAssignmentHTML(storedAssignment);
+                
+                // Also check if assignment section should be visible
+                const assignmentSection = document.getElementById('assignment-section');
+                if (assignmentSection) {
+                    assignmentSection.style.display = 'block';
+                }
+                
+                const waitingSection = document.getElementById('waiting-section');
+                if (waitingSection) {
+                    waitingSection.style.display = 'none';
+                }
+            }
+            
+            // Always update page data to get current session status
+            this.updatePageData();
+        }, 100); // Small delay to ensure DOM is ready
     }
     
     getSessionId() {
@@ -347,24 +382,29 @@ class Wichtelomat {
                 waitingSection.style.display = 'none';
             }
             
-            // Store assignment in localStorage for persistence
+            // Store assignment in localStorage for persistence (new assignment from API)
             if (userAssignment && this.username) {
                 const assignmentKey = `wichtel_assignment_${this.sessionId}_${this.username}`;
                 const timestampKey = assignmentKey + '_timestamp';
                 localStorage.setItem(assignmentKey, userAssignment);
                 localStorage.setItem(timestampKey, Date.now().toString());
+                console.log('Stored new assignment:', userAssignment);
             }
             
-            // Update user's personal assignment
+            // Update user's personal assignment display
             const userAssignmentEl = document.getElementById('user-assignment');
             if (userAssignmentEl) {
+                // Priority 1: Use assignment from API
                 if (userAssignment) {
                     userAssignmentEl.innerHTML = this.createAssignmentHTML(userAssignment);
-                } else if (this.username) {
-                    // Try to load from localStorage if not received from server
+                    console.log('Displayed assignment from API:', userAssignment);
+                } 
+                // Priority 2: Use stored assignment if no API assignment but user exists
+                else if (this.username) {
                     const storedAssignment = this.getStoredAssignment();
                     if (storedAssignment) {
                         userAssignmentEl.innerHTML = this.createAssignmentHTML(storedAssignment);
+                        console.log('Displayed stored assignment:', storedAssignment);
                     } else {
                         userAssignmentEl.innerHTML = `
                             <div class="alert alert-warning">
@@ -373,7 +413,9 @@ class Wichtelomat {
                             </div>
                         `;
                     }
-                } else {
+                } 
+                // Priority 3: No user set
+                else {
                     userAssignmentEl.innerHTML = `
                         <div class="alert alert-info">
                             <strong>👋 Willkommen!</strong><br>
@@ -490,7 +532,49 @@ class Wichtelomat {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing Wichtelomat...');
     window.wichtelomat = new Wichtelomat();
+    
+    // Force immediate check for stored assignments after initialization
+    setTimeout(() => {
+        const wichtelomat = window.wichtelomat;
+        if (wichtelomat && wichtelomat.username && wichtelomat.sessionId) {
+            console.log('Post-init: Checking for stored assignment...');
+            const storedAssignment = wichtelomat.getStoredAssignment();
+            
+            if (storedAssignment) {
+                console.log('Post-init: Found stored assignment:', storedAssignment);
+                const userAssignmentEl = document.getElementById('user-assignment');
+                const assignmentSection = document.getElementById('assignment-section');
+                
+                if (userAssignmentEl) {
+                    // Force display of stored assignment
+                    userAssignmentEl.innerHTML = wichtelomat.createAssignmentHTML(storedAssignment);
+                    console.log('Post-init: Displayed stored assignment');
+                    
+                    // Ensure assignment section is visible if we have an assignment
+                    if (assignmentSection) {
+                        assignmentSection.style.display = 'block';
+                        console.log('Post-init: Made assignment section visible');
+                    }
+                    
+                    // Hide waiting section since we have an assignment
+                    const waitingSection = document.getElementById('waiting-section');
+                    if (waitingSection) {
+                        waitingSection.style.display = 'none';
+                        console.log('Post-init: Hid waiting section');
+                    }
+                }
+            } else {
+                console.log('Post-init: No stored assignment found');
+            }
+        } else {
+            console.log('Post-init: Username or session ID missing', {
+                username: wichtelomat?.username,
+                sessionId: wichtelomat?.sessionId
+            });
+        }
+    }, 300); // Slightly longer delay to ensure everything is fully initialized
 });
 
 // Add CSS animations
