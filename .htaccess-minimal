@@ -1,0 +1,33 @@
+# Wichtelomat - Minimal .htaccess Configuration
+# Use this version if the main .htaccess causes problems
+
+# Set default index file
+DirectoryIndex index.php
+
+# Protect sensitive files (minimal security)
+<Files "config.php">
+    Require all denied
+</Files>
+
+<Files "WichtelomatSession.php">
+    Require all denied
+</Files>
+
+# Protect data directory
+<Directory "data">
+    Require all denied
+</Directory>
+
+# Protect JSON files
+<FilesMatch "\.json$">
+    Require all denied
+</FilesMatch>
+
+# Protect system files
+<Files ".htaccess">
+    Require all denied
+</Files>
+
+<Files ".gitignore">
+    Require all denied
+</Files>

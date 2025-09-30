@@ -1,95 +1,74 @@
 # Wichtelomat .htaccess Configuration
-
-# Enable PHP execution
-<Files "*.php">
-    SetHandler application/x-httpd-php
-</Files>
+# Compatible with Apache 2.4+ and modern PHP
 
 # Set default index file
 DirectoryIndex index.php
 
-# Enable rewrite engine
-RewriteEngine On
-
-# Security: Protect sensitive files and directories
+# Security: Protect sensitive files and directories using Apache 2.4 syntax
 <Files "config.php">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
 <Files "WichtelomatSession.php">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
 # Protect data directory
 <Directory "data">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Directory>
 
-# Protect session files
+# Protect session files (JSON)
 <FilesMatch "\.json$">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </FilesMatch>
 
-# Protect old text files (legacy)
+# Protect legacy files
 <Files "participants.txt">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
 <Files "assignments.txt">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
+# Protect system files
 <Files ".htaccess">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
+</Files>
+
+<Files ".gitignore">
+    Require all denied
 </Files>
 
 <Files "*.log">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
-# Security headers
+<Files ".gitkeep">
+    Require all denied
+</Files>
+
+# Security headers (optional - only if mod_headers is available)
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
 
-# Compression for better performance
+# Compression for better performance (optional)
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/xml
     AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/xml
-    AddOutputFilterByType DEFLATE application/xhtml+xml
-    AddOutputFilterByType DEFLATE application/rss+xml
     AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/x-javascript
     AddOutputFilterByType DEFLATE application/json
 </IfModule>
 
-# Browser caching for static assets
+# Browser caching for static assets (optional)
 <IfModule mod_expires.c>
     ExpiresActive On
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType image/png "access plus 1 month"
-    ExpiresByType image/jpg "access plus 1 month"
-    ExpiresByType image/jpeg "access plus 1 month"
-    ExpiresByType image/gif "access plus 1 month"
-    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
 </IfModule>
-
-# Error pages (optional)
-ErrorDocument 403 /index.php
-ErrorDocument 404 /index.php
