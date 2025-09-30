@@ -1,0 +1,57 @@
+# Wichtelomat - Git Ignore File
+
+# Session data directory (contains personal data)
+data/*
+data/sessions/*
+
+# But keep the directory structure
+!data/.gitkeep
+!data/sessions/.gitkeep
+
+# Legacy text files (from old version)
+participants.txt
+assignments.txt
+
+# Log files
+*.log
+error.log
+access.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# PHP specific
+composer.phar
+vendor/
+.env
+
+# Development files
+test.php
+debug.php
+
+# Backup files
+backup/
+*.backup
+
+# Configuration overrides (if any)
+config.local.php
