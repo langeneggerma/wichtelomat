@@ -49,6 +49,7 @@ vendor/
 test.php
 debug.php
 demo.php
+test-persistence.html
 
 # Backup files
 backup/

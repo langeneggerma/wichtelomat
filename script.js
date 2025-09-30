@@ -26,11 +26,81 @@ class Wichtelomat {
         });
     }
     
+    createAssignmentHTML(assignment) {
+        return `
+            <div class="alert alert-success">
+                <strong>🎁 Deine Zuordnung:</strong><br>
+                Du beschenkst: <strong>${this.escapeHtml(assignment)}</strong>
+            </div>
+            <div class="alert alert-info" style="margin-top: 1rem;">
+                <strong>🤫 Pssst!</strong><br>
+                Das ist nur für dich bestimmt. Jeder andere sieht nur seine eigene Zuordnung - 
+                so bleibt es für alle eine Überraschung! 🎉
+            </div>
+            <div class="alert alert-secondary" style="margin-top: 1rem;">
+                <strong>💾 Dauerhaft gespeichert</strong><br>
+                Deine Zuordnung bleibt auch nach dem Neuladen der Seite sichtbar.
+                <br>
+                <button class="btn btn-sm btn-secondary" onclick="window.wichtelomat.forgetAssignment()" style="margin-top: 0.5rem;">
+                    🗑️ Zuordnung vergessen
+                </button>
+            </div>
+        `;
+    }
+    
+    forgetAssignment() {
+        if (confirm('Möchtest du deine Zuordnung wirklich aus dem Browser löschen? Du kannst sie durch Neuladen der Seite wieder anzeigen lassen.')) {
+            this.clearStoredAssignment();
+            this.showNotification('Zuordnung aus Browser gelöscht. Lade die Seite neu, um sie wieder anzuzeigen.', 'info');
+            
+            // Hide assignment display
+            const userAssignmentEl = document.getElementById('user-assignment');
+            if (userAssignmentEl) {
+                userAssignmentEl.innerHTML = `
+                    <div class="alert alert-info">
+                        <strong>🔄 Zuordnung vergessen</strong><br>
+                        Lade die Seite neu, um deine Zuordnung wieder anzuzeigen.
+                        <br>
+                        <button class="btn btn-primary" onclick="window.location.reload()" style="margin-top: 0.5rem;">
+                            🔄 Seite neu laden
+                        </button>
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    getStoredAssignment() {
+        if (!this.sessionId || !this.username) return null;
+        const assignmentKey = `wichtel_assignment_${this.sessionId}_${this.username}`;
+        return localStorage.getItem(assignmentKey);
+    }
+    
+    clearStoredAssignment() {
+        if (!this.sessionId || !this.username) return;
+        const assignmentKey = `wichtel_assignment_${this.sessionId}_${this.username}`;
+        localStorage.removeItem(assignmentKey);
+    }
+    
     init() {
         this.setupEventListeners();
         this.startAutoUpdate();
         this.updateHeartbeat();
         this.assignmentsWereReady = false; // Track if assignments were already ready
+        
+        // Load stored assignment on page load
+        this.loadStoredAssignmentOnInit();
+    }
+    
+    loadStoredAssignmentOnInit() {
+        // Check if we have a stored assignment and session is started
+        const storedAssignment = this.getStoredAssignment();
+        if (storedAssignment && this.username) {
+            // Check session status first
+            setTimeout(() => {
+                this.updatePageData();
+            }, 500);
+        }
     }
     
     getSessionId() {
@@ -120,6 +190,28 @@ class Wichtelomat {
                 this.username = name;
             }
         }
+        
+        // Clear stored assignment on reset
+        if (action === 'reset') {
+            this.clearStoredAssignment();
+            // Clear all stored assignments for this session
+            this.clearAllStoredAssignmentsForSession();
+        }
+    }
+    
+    clearAllStoredAssignmentsForSession() {
+        if (!this.sessionId) return;
+        
+        // Find and remove all localStorage items for this session
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`wichtel_assignment_${this.sessionId}_`)) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
     }
     
     validateName() {
@@ -255,34 +347,40 @@ class Wichtelomat {
                 waitingSection.style.display = 'none';
             }
             
+            // Store assignment in localStorage for persistence
+            if (userAssignment && this.username) {
+                const assignmentKey = `wichtel_assignment_${this.sessionId}_${this.username}`;
+                const timestampKey = assignmentKey + '_timestamp';
+                localStorage.setItem(assignmentKey, userAssignment);
+                localStorage.setItem(timestampKey, Date.now().toString());
+            }
+            
             // Update user's personal assignment
             const userAssignmentEl = document.getElementById('user-assignment');
-            if (userAssignmentEl && userAssignment) {
-                userAssignmentEl.innerHTML = `
-                    <div class="alert alert-success">
-                        <strong>🎁 Deine Zuordnung:</strong><br>
-                        Du beschenkst: <strong>${this.escapeHtml(userAssignment)}</strong>
-                    </div>
-                    <div class="alert alert-info" style="margin-top: 1rem;">
-                        <strong>🤫 Pssst!</strong><br>
-                        Das ist nur für dich bestimmt. Jeder andere sieht nur seine eigene Zuordnung - 
-                        so bleibt es für alle eine Überraschung! 🎉
-                    </div>
-                `;
-            } else if (userAssignmentEl && !userAssignment && this.username) {
-                userAssignmentEl.innerHTML = `
-                    <div class="alert alert-warning">
-                        <strong>⚠️ Keine Zuordnung gefunden</strong><br>
-                        Du musst dich zuerst als Teilnehmer eintragen!
-                    </div>
-                `;
-            } else if (userAssignmentEl && !this.username) {
-                userAssignmentEl.innerHTML = `
-                    <div class="alert alert-info">
-                        <strong>👋 Willkommen!</strong><br>
-                        Trage dich als Teilnehmer ein, um deine Zuordnung zu sehen.
-                    </div>
-                `;
+            if (userAssignmentEl) {
+                if (userAssignment) {
+                    userAssignmentEl.innerHTML = this.createAssignmentHTML(userAssignment);
+                } else if (this.username) {
+                    // Try to load from localStorage if not received from server
+                    const storedAssignment = this.getStoredAssignment();
+                    if (storedAssignment) {
+                        userAssignmentEl.innerHTML = this.createAssignmentHTML(storedAssignment);
+                    } else {
+                        userAssignmentEl.innerHTML = `
+                            <div class="alert alert-warning">
+                                <strong>⚠️ Keine Zuordnung gefunden</strong><br>
+                                Du musst dich zuerst als Teilnehmer eintragen!
+                            </div>
+                        `;
+                    }
+                } else {
+                    userAssignmentEl.innerHTML = `
+                        <div class="alert alert-info">
+                            <strong>👋 Willkommen!</strong><br>
+                            Trage dich als Teilnehmer ein, um deine Zuordnung zu sehen.
+                        </div>
+                    `;
+                }
             }
             
             // Show notification if assignments just became ready
@@ -357,6 +455,36 @@ class Wichtelomat {
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
         }
+        
+        // Optional: Clean up old localStorage entries (older than 7 days)
+        this.cleanupOldStoredAssignments();
+    }
+    
+    cleanupOldStoredAssignments() {
+        const now = Date.now();
+        const weekInMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+        
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('wichtel_assignment_')) {
+                // Check if we have a timestamp for this entry
+                const timestampKey = key + '_timestamp';
+                const timestamp = localStorage.getItem(timestampKey);
+                
+                if (timestamp) {
+                    if (now - parseInt(timestamp) > weekInMs) {
+                        keysToRemove.push(key);
+                        keysToRemove.push(timestampKey);
+                    }
+                } else {
+                    // If no timestamp, assume it's old and remove
+                    keysToRemove.push(key);
+                }
+            }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
     }
 }
 

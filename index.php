@@ -250,12 +250,22 @@ $sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
                                     Das ist nur für dich bestimmt. Jeder andere sieht nur seine eigene Zuordnung - 
                                     so bleibt es für alle eine Überraschung! 🎉
                                 </div>
+                                <div class="alert alert-secondary" style="margin-top: 1rem;">
+                                    <strong>💾 Dauerhaft gespeichert</strong><br>
+                                    Deine Zuordnung bleibt auch nach dem Neuladen der Seite sichtbar.
+                                </div>
                             <?php else: ?>
                                 <div class="alert alert-warning">
                                     <strong>⚠️ Keine Zuordnung gefunden</strong><br>
                                     Du musst dich zuerst als Teilnehmer eintragen!
                                 </div>
                             <?php endif; ?>
+                        <?php elseif ($status === 'started'): ?>
+                            <div class="alert alert-info">
+                                <strong>👋 Willkommen!</strong><br>
+                                Trage dich als Teilnehmer ein, um deine Zuordnung zu sehen.
+                                <br><small class="text-muted">Falls du bereits teilnimmst, wird deine Zuordnung automatisch geladen.</small>
+                            </div>
                         <?php else: ?>
                             <div class="alert alert-info">
                                 <strong>⏳ Warten auf Start</strong><br>
