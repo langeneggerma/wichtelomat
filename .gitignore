@@ -48,6 +48,7 @@ vendor/
 # Development files
 test.php
 debug.php
+demo.php
 
 # Backup files
 backup/

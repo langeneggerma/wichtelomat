@@ -66,20 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "Wichtelomat wurde zurückgesetzt!";
             unset($_SESSION['wichtel_username']);
             break;
-            
-        case 'get_my_assignment':
-            $username = $_SESSION['wichtel_username'] ?? '';
-            if ($username) {
-                $assignment = $session->getAssignmentForUser($username);
-                if ($assignment) {
-                    $message = "🎁 Du beschenkst: <strong>$assignment</strong>";
-                } else {
-                    $error = "Keine Zuordnung für dich gefunden!";
-                }
-            } else {
-                $error = "Du musst dich zuerst als Teilnehmer eintragen!";
-            }
-            break;
     }
 }
 
@@ -223,7 +209,7 @@ $sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
 
             <!-- Control Buttons -->
             <?php if (!empty($participants) && $status === 'waiting'): ?>
-            <div class="card">
+            <div class="card" id="waiting-section">
                 <div class="card-body">
                     <form method="post" style="display: inline;">
                         <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
@@ -243,46 +229,60 @@ $sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
             </div>
             <?php endif; ?>
 
-            <!-- Assignments Results -->
-            <?php if ($status === 'started' && !empty($assignments)): ?>
-            <div class="card">
+            <!-- Personal Assignment Display -->
+            <div class="card" id="assignment-section" style="display: <?= $status === 'started' ? 'block' : 'none' ?>;">
                 <div class="card-header">
-                    <span>🎯 Wichtel-Zuordnungen</span>
+                    <span>🎁 Deine Wichtel-Zuordnung</span>
                 </div>
                 <div class="card-body">
-                    <?php if (isset($_SESSION['wichtel_username'])): ?>
-                        <!-- Personal Assignment -->
-                        <div class="alert alert-info">
-                            <form method="post" style="display: inline;">
-                                <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
-                                <button type="submit" name="action" value="get_my_assignment" class="btn btn-primary">
-                                    🎁 Meine Zuordnung anzeigen
-                                </button>
-                            </form>
+                    <div id="user-assignment">
+                        <?php if ($status === 'started' && isset($_SESSION['wichtel_username'])): ?>
+                            <?php 
+                            $userAssignment = $session->getAssignmentForUser($_SESSION['wichtel_username']);
+                            if ($userAssignment): 
+                            ?>
+                                <div class="alert alert-success">
+                                    <strong>🎁 Deine Zuordnung:</strong><br>
+                                    Du beschenkst: <strong><?= htmlspecialchars($userAssignment) ?></strong>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-warning">
+                                    <strong>⚠️ Keine Zuordnung gefunden</strong><br>
+                                    Du musst dich zuerst als Teilnehmer eintragen!
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="alert alert-info">
+                                <strong>⏳ Warten auf Start</strong><br>
+                                Der Wichtelomat wurde noch nicht gestartet.
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if ($status === 'started'): ?>
+                    <details style="margin-top: 1rem;">
+                        <summary style="cursor: pointer; font-weight: bold; color: #6c757d; font-size: 0.9rem;">
+                            📋 Alle Zuordnungen anzeigen (nur für Organisatoren)
+                        </summary>
+                        <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <p style="margin: 0 0 1rem 0; color: #6c757d; font-size: 0.9rem;">
+                                <strong>⚠️ Hinweis:</strong> Diese Ansicht ist nur für Organisatoren gedacht. 
+                                Die Teilnehmer sehen normalerweise nur ihre eigene Zuordnung.
+                            </p>
+                            <ul class="assignments-list">
+                                <?php foreach ($assignments as $assignment): ?>
+                                    <li class="assignment-item">
+                                        <?= htmlspecialchars($assignment['giver']) ?> 
+                                        <strong>→</strong> 
+                                        <?= htmlspecialchars($assignment['receiver']) ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
-                        
-                        <details>
-                            <summary style="cursor: pointer; font-weight: bold; margin-bottom: 1rem;">
-                                📋 Alle Zuordnungen anzeigen (nur für Organisatoren)
-                            </summary>
-                    <?php endif; ?>
-                    
-                    <ul class="assignments-list">
-                        <?php foreach ($assignments as $assignment): ?>
-                            <li class="assignment-item">
-                                <?= htmlspecialchars($assignment['giver']) ?> 
-                                <strong>→</strong> 
-                                <?= htmlspecialchars($assignment['receiver']) ?>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                    
-                    <?php if (isset($_SESSION['wichtel_username'])): ?>
-                        </details>
+                    </details>
                     <?php endif; ?>
                 </div>
             </div>
-            <?php endif; ?>
 
             <!-- Reset Section -->
             <?php if (!empty($participants) || !empty($assignments)): ?>

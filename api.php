@@ -21,6 +21,8 @@ try {
     switch ($action) {
         case 'get_session_data':
             $sessionId = $_GET['session_id'] ?? '';
+            $username = $_GET['username'] ?? '';
+            
             if (empty($sessionId)) {
                 throw new Exception('Session ID required');
             }
@@ -32,18 +34,25 @@ try {
             
             $participants = $session->getParticipants();
             $onlineUsers = $session->getOnlineUsers();
-            $assignments = $session->getAssignments();
+            $status = $session->getStatus();
+            
+            // Only include user's personal assignment if username provided and assignments exist
+            $userAssignment = null;
+            if (!empty($username) && $status === 'started') {
+                $userAssignment = $session->getAssignmentForUser($username);
+            }
             
             $response = [
                 'success' => true,
                 'participants' => $participants,
                 'online_users' => $onlineUsers,
-                'assignments' => $assignments,
-                'status' => $session->getStatus(),
+                'status' => $status,
+                'user_assignment' => $userAssignment,
+                'assignments_ready' => $status === 'started',
                 'stats' => [
                     'participant_count' => count($participants),
                     'online_count' => count($onlineUsers),
-                    'status' => $session->getStatus()
+                    'status' => $status
                 ]
             ];
             break;

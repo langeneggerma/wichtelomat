@@ -9,10 +9,28 @@ class Wichtelomat {
         this.init();
     }
     
+    updateStats(stats) {
+        if (!stats) return;
+        
+        const elements = {
+            'participant-count': stats.participant_count,
+            'online-count': stats.online_count,
+            'session-status': stats.status
+        };
+        
+        Object.entries(elements).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = value;
+            }
+        });
+    }
+    
     init() {
         this.setupEventListeners();
         this.startAutoUpdate();
         this.updateHeartbeat();
+        this.assignmentsWereReady = false; // Track if assignments were already ready
     }
     
     getSessionId() {
@@ -149,13 +167,25 @@ class Wichtelomat {
         if (!this.sessionId) return;
         
         try {
-            const response = await fetch(`api.php?action=get_session_data&session_id=${this.sessionId}&t=${Date.now()}`);
+            const params = new URLSearchParams({
+                action: 'get_session_data',
+                session_id: this.sessionId,
+                t: Date.now()
+            });
+            
+            // Add username if available for personal assignment
+            if (this.username) {
+                params.append('username', this.username);
+            }
+            
+            const response = await fetch(`api.php?${params}`);
             const data = await response.json();
             
             if (data.success) {
                 this.updateParticipantsList(data.participants);
                 this.updateOnlineStatus(data.online_users);
                 this.updateStats(data.stats);
+                this.updateAssignmentStatus(data.status, data.user_assignment, data.assignments_ready);
                 this.lastUpdateTime = Date.now();
                 
                 // Update last update time display
@@ -207,21 +237,63 @@ class Wichtelomat {
         }
     }
     
-    updateStats(stats) {
-        if (!stats) return;
+    updateAssignmentStatus(status, userAssignment, assignmentsReady) {
+        // Update assignment display
+        const assignmentSection = document.getElementById('assignment-section');
+        const waitingSection = document.getElementById('waiting-section');
         
-        const elements = {
-            'participant-count': stats.participant_count,
-            'online-count': stats.online_count,
-            'session-status': stats.status
-        };
-        
-        Object.entries(elements).forEach(([id, value]) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.textContent = value;
+        if (status === 'started' && assignmentsReady) {
+            // Show assignment section, hide waiting section
+            if (assignmentSection) {
+                assignmentSection.style.display = 'block';
+                if (!this.assignmentsWereReady) {
+                    assignmentSection.classList.add('assignment-reveal');
+                    setTimeout(() => assignmentSection.classList.remove('assignment-reveal'), 600);
+                }
             }
-        });
+            if (waitingSection) {
+                waitingSection.style.display = 'none';
+            }
+            
+            // Update user's personal assignment
+            const userAssignmentEl = document.getElementById('user-assignment');
+            if (userAssignmentEl && userAssignment) {
+                userAssignmentEl.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>🎁 Deine Zuordnung:</strong><br>
+                        Du beschenkst: <strong>${this.escapeHtml(userAssignment)}</strong>
+                    </div>
+                `;
+            } else if (userAssignmentEl && !userAssignment && this.username) {
+                userAssignmentEl.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Keine Zuordnung gefunden</strong><br>
+                        Du musst dich zuerst als Teilnehmer eintragen!
+                    </div>
+                `;
+            } else if (userAssignmentEl && !this.username) {
+                userAssignmentEl.innerHTML = `
+                    <div class="alert alert-info">
+                        <strong>👋 Willkommen!</strong><br>
+                        Trage dich als Teilnehmer ein, um deine Zuordnung zu sehen.
+                    </div>
+                `;
+            }
+            
+            // Show notification if assignments just became ready
+            if (!this.assignmentsWereReady && assignmentsReady) {
+                this.showNotification('🎉 Wichtelomat wurde gestartet! Deine Zuordnung ist bereit.', 'success');
+                this.assignmentsWereReady = true;
+            }
+        } else {
+            // Hide assignment section, show waiting section
+            if (assignmentSection) {
+                assignmentSection.style.display = 'none';
+            }
+            if (waitingSection) {
+                waitingSection.style.display = 'block';
+            }
+        }
     }
     
     isUserOnline(username) {

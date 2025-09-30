@@ -407,6 +407,30 @@ body {
     }
 }
 
+#assignment-section, #waiting-section {
+    transition: all 0.3s ease-in-out;
+}
+
+#assignment-section.hidden, #waiting-section.hidden {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.assignment-reveal {
+    animation: assignmentReveal 0.6s ease-out;
+}
+
+@keyframes assignmentReveal {
+    0% {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
     :root {
