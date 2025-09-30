@@ -263,6 +263,11 @@ class Wichtelomat {
                         <strong>🎁 Deine Zuordnung:</strong><br>
                         Du beschenkst: <strong>${this.escapeHtml(userAssignment)}</strong>
                     </div>
+                    <div class="alert alert-info" style="margin-top: 1rem;">
+                        <strong>🤫 Pssst!</strong><br>
+                        Das ist nur für dich bestimmt. Jeder andere sieht nur seine eigene Zuordnung - 
+                        so bleibt es für alle eine Überraschung! 🎉
+                    </div>
                 `;
             } else if (userAssignmentEl && !userAssignment && this.username) {
                 userAssignmentEl.innerHTML = `
@@ -282,7 +287,7 @@ class Wichtelomat {
             
             // Show notification if assignments just became ready
             if (!this.assignmentsWereReady && assignmentsReady) {
-                this.showNotification('🎉 Wichtelomat wurde gestartet! Deine Zuordnung ist bereit.', 'success');
+                this.showNotification('🎉 Wichtelomat gestartet! Deine persönliche Zuordnung ist bereit - nur für dich sichtbar! 🤫', 'success');
                 this.assignmentsWereReady = true;
             }
         } else {

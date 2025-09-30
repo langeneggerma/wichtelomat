@@ -156,7 +156,21 @@ class WichtelomatSession {
     }
     
     public function getAssignments() {
+        // SECURITY: This method should only be used for internal operations
+        // External access to individual assignments should use getAssignmentForUser()
         return $this->data['assignments'];
+    }
+    
+    public function getAllAssignmentsSecure($requestingUser) {
+        // Security method: Only allow if no assignments exist (for admin purposes)
+        // In production, this should never return actual assignments
+        if (empty($this->data['assignments'])) {
+            return [];
+        }
+        
+        // For security: Never return all assignments to prevent spoilers
+        error_log("SECURITY WARNING: Attempt to access all assignments by user: " . $requestingUser);
+        return [];
     }
     
     public function getAssignmentForUser($username) {

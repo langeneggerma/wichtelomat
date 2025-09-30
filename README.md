@@ -20,11 +20,11 @@ Ein moderner, session-basierter Wichtelomat für Teams und Gruppen mit Echtzeit-
 - **Bessere Benutzerführung**: Intuitive Navigation und klare Call-to-Actions
 - **Dark Mode Support**: Automatische Anpassung an System-Einstellungen
 
-### 🔒 Verbesserte Sicherheit
-- **Session-Isolation**: Daten sind pro Session getrennt
-- **Sichere Datenspeicherung**: JSON-basierte Session-Dateien
-- **Automatische Bereinigung**: Alte Sessions werden automatisch gelöscht
-- **Schutz sensibler Dateien**: Erweiterte .htaccess-Konfiguration
+### 🔒 Maximale Privatsphäre
+- **Persönliche Sicht**: Jeder Teilnehmer sieht nur seine eigene Zuordnung
+- **Keine Spoiler**: Auch Organisatoren können keine anderen Zuordnungen einsehen
+- **Sichere API**: Technisch unmöglich, alle Zuordnungen abzurufen
+- **Garantierte Überraschung**: Komplette Geheimhaltung bis zum Wichtel-Tag
 
 ## 🚀 Installation
 
@@ -42,8 +42,9 @@ Ein moderner, session-basierter Wichtelomat für Teams und Gruppen mit Echtzeit-
 ### Wichteln
 1. **Online-Status**: Sehen Sie in Echtzeit, wer teilnimmt und online ist
 2. **Wichtelomat starten**: Wenn alle da sind, den Start-Button klicken
-3. **Individuelle Zuordnung**: Jeder kann seine persönliche Zuordnung anzeigen
-4. **Vollständige Liste**: Organisatoren können alle Zuordnungen einsehen
+3. **Persönliche Zuordnung**: Jeder sieht automatisch nur seine eigene Zuordnung
+4. **Maximale Privatsphäre**: Niemand (auch nicht der Organisator) kann andere Zuordnungen einsehen
+5. **Überraschung garantiert**: Alle Zuordnungen bleiben geheim bis zum Wichtel-Tag
 
 ### Verwaltung
 - **Reset-Funktion**: Komplettes Zurücksetzen für neue Runden

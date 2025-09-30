@@ -245,6 +245,11 @@ $sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
                                     <strong>🎁 Deine Zuordnung:</strong><br>
                                     Du beschenkst: <strong><?= htmlspecialchars($userAssignment) ?></strong>
                                 </div>
+                                <div class="alert alert-info" style="margin-top: 1rem;">
+                                    <strong>🤫 Pssst!</strong><br>
+                                    Das ist nur für dich bestimmt. Jeder andere sieht nur seine eigene Zuordnung - 
+                                    so bleibt es für alle eine Überraschung! 🎉
+                                </div>
                             <?php else: ?>
                                 <div class="alert alert-warning">
                                     <strong>⚠️ Keine Zuordnung gefunden</strong><br>
@@ -258,29 +263,6 @@ $sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
                             </div>
                         <?php endif; ?>
                     </div>
-                    
-                    <?php if ($status === 'started'): ?>
-                    <details style="margin-top: 1rem;">
-                        <summary style="cursor: pointer; font-weight: bold; color: #6c757d; font-size: 0.9rem;">
-                            📋 Alle Zuordnungen anzeigen (nur für Organisatoren)
-                        </summary>
-                        <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
-                            <p style="margin: 0 0 1rem 0; color: #6c757d; font-size: 0.9rem;">
-                                <strong>⚠️ Hinweis:</strong> Diese Ansicht ist nur für Organisatoren gedacht. 
-                                Die Teilnehmer sehen normalerweise nur ihre eigene Zuordnung.
-                            </p>
-                            <ul class="assignments-list">
-                                <?php foreach ($assignments as $assignment): ?>
-                                    <li class="assignment-item">
-                                        <?= htmlspecialchars($assignment['giver']) ?> 
-                                        <strong>→</strong> 
-                                        <?= htmlspecialchars($assignment['receiver']) ?>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    </details>
-                    <?php endif; ?>
                 </div>
             </div>
 
