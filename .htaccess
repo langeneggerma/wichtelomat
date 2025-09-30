@@ -1,18 +1,40 @@
+# Wichtelomat .htaccess Configuration
+
 # Enable PHP execution
 <Files "*.php">
     SetHandler application/x-httpd-php
 </Files>
 
-# Allow access to the directory
-Options +Indexes +FollowSymLinks
-
 # Set default index file
-DirectoryIndex index.php index.html
+DirectoryIndex index.php
 
-# Enable rewrite engine for clean URLs (optional)
+# Enable rewrite engine
 RewriteEngine On
 
-# Prevent access to sensitive files
+# Security: Protect sensitive files and directories
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "WichtelomatSession.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Protect data directory
+<Directory "data">
+    Order Allow,Deny
+    Deny from all
+</Directory>
+
+# Protect session files
+<FilesMatch "\.json$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Protect old text files (legacy)
 <Files "participants.txt">
     Order Allow,Deny
     Deny from all
@@ -38,6 +60,34 @@ RewriteEngine On
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Compression for better performance
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# Browser caching for static assets
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
 </IfModule>
 
 # Error pages (optional)

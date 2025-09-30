@@ -1,301 +1,334 @@
 <?php
+require_once 'config.php';
+require_once 'WichtelomatSession.php';
+
 session_start();
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
-// Datei für Teilnehmer und Zuordnungen (korrekte Windows-Pfade)
-$baseDir = __DIR__;
-$participantsFile = $baseDir . DIRECTORY_SEPARATOR . 'participants.txt';
-$assignmentsFile = $baseDir . DIRECTORY_SEPARATOR . 'assignments.txt';
+// Handle session creation and management
+$sessionId = $_GET['session'] ?? $_POST['session_id'] ?? '';
+$isNewSession = false;
 
-// Funktionen
-function getParticipants() {
-    global $participantsFile;
-    if (!file_exists($participantsFile)) {
-        return [];
+if (empty($sessionId)) {
+    // Create new session
+    $session = new WichtelomatSession();
+    $sessionId = $session->getSessionId();
+    $isNewSession = true;
+} else {
+    // Load existing session
+    $session = new WichtelomatSession($sessionId);
+    if (!$session->exists()) {
+        // Session doesn't exist, create new one
+        $session = new WichtelomatSession();
+        $sessionId = $session->getSessionId();
+        $isNewSession = true;
     }
-    $content = file_get_contents($participantsFile);
-    return array_filter(explode("\n", trim($content)));
 }
 
-function addParticipant($name) {
-    global $participantsFile;
-    $name = trim($name);
-    if (empty($name)) return false;
-    
-    $participants = getParticipants();
-    if (in_array($name, $participants)) {
-        return false; // Name bereits vorhanden
-    }
-    
-    $result = file_put_contents($participantsFile, $name . "\n", FILE_APPEND | LOCK_EX);
-    
-    // Debug: Log the attempt
-    error_log("addParticipant: name='$name', file='$participantsFile', result=" . ($result !== false ? 'SUCCESS' : 'FAILED') . ", file_exists=" . (file_exists($participantsFile) ? 'YES' : 'NO'));
-    
-    return $result !== false;
-}
-
-function createAssignments() {
-    global $assignmentsFile;
-    $participants = getParticipants();
-    
-    if (count($participants) < 2) {
-        return false;
-    }
-    
-    $givers = $participants;
-    $receivers = $participants;
-    
-    // Mische die Empfänger
-    shuffle($receivers);
-    
-    // Stelle sicher, dass niemand sich selbst zugeordnet wird
-    for ($i = 0; $i < count($givers); $i++) {
-        if ($givers[$i] === $receivers[$i]) {
-            // Tausche mit dem nächsten (oder ersten, wenn am Ende)
-            $swapWith = ($i + 1) % count($receivers);
-            $temp = $receivers[$i];
-            $receivers[$i] = $receivers[$swapWith];
-            $receivers[$swapWith] = $temp;
-        }
-    }
-    
-    // Speichere die Zuordnungen
-    $assignments = [];
-    for ($i = 0; $i < count($givers); $i++) {
-        $assignments[] = $givers[$i] . ' => ' . $receivers[$i];
-    }
-    
-    file_put_contents($assignmentsFile, implode("\n", $assignments));
-    return true;
-}
-
-function getAssignments() {
-    global $assignmentsFile;
-    if (!file_exists($assignmentsFile)) {
-        return [];
-    }
-    $content = file_get_contents($assignmentsFile);
-    return array_filter(explode("\n", trim($content)));
-}
-
-function resetWichtelomat() {
-    global $participantsFile, $assignmentsFile;
-    if (file_exists($participantsFile)) unlink($participantsFile);
-    if (file_exists($assignmentsFile)) unlink($assignmentsFile);
-}
-
-// Aktionen verarbeiten
+// Process form actions
 $message = '';
 $error = '';
 
-if ($_POST['action'] ?? '' === 'add_participant') {
-    $name = $_POST['name'] ?? '';
-    if (addParticipant($name)) {
-        $message = "Teilnehmer '$name' wurde hinzugefügt!";
-    } else {
-        $error = "Name ist bereits vorhanden oder ungültig!";
-    }
-    // Debug: Überprüfe ob Datei existiert
-    if (file_exists($participantsFile)) {
-        $message .= " (Datei: $participantsFile existiert)";
-    } else {
-        $error .= " (FEHLER: Datei $participantsFile wurde nicht erstellt!)";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'add_participant':
+            $name = trim($_POST['name'] ?? '');
+            if (empty($name)) {
+                $error = "Bitte geben Sie einen Namen ein!";
+            } elseif (strlen($name) < 2) {
+                $error = "Der Name muss mindestens 2 Zeichen haben!";
+            } elseif (strlen($name) > 50) {
+                $error = "Der Name darf höchstens 50 Zeichen haben!";
+            } elseif ($session->addParticipant($name)) {
+                $message = "Teilnehmer '$name' wurde hinzugefügt!";
+                
+                // Set user as online
+                $session->setUserOnline($name);
+                
+                // Store username in session for activity tracking
+                $_SESSION['wichtel_username'] = $name;
+            } else {
+                $error = "Name ist bereits vorhanden!";
+            }
+            break;
+            
+        case 'start_wichtelomat':
+            if ($session->createAssignments()) {
+                $message = "🎉 Wichtelomat wurde gestartet! Die Zuordnungen sind bereit.";
+            } else {
+                $error = "Mindestens 2 Teilnehmer erforderlich!";
+            }
+            break;
+            
+        case 'reset':
+            $session->reset();
+            $message = "Wichtelomat wurde zurückgesetzt!";
+            unset($_SESSION['wichtel_username']);
+            break;
+            
+        case 'get_my_assignment':
+            $username = $_SESSION['wichtel_username'] ?? '';
+            if ($username) {
+                $assignment = $session->getAssignmentForUser($username);
+                if ($assignment) {
+                    $message = "🎁 Du beschenkst: <strong>$assignment</strong>";
+                } else {
+                    $error = "Keine Zuordnung für dich gefunden!";
+                }
+            } else {
+                $error = "Du musst dich zuerst als Teilnehmer eintragen!";
+            }
+            break;
     }
 }
 
-if ($_POST['action'] ?? '' === 'start_wichtelomat') {
-    if (createAssignments()) {
-        $message = "Wichtelomat wurde gestartet! Die Zuordnungen sind bereit.";
-    } else {
-        $error = "Mindestens 2 Teilnehmer erforderlich!";
-    }
+// Update user online status if logged in
+if (isset($_SESSION['wichtel_username'])) {
+    $session->setUserOnline($_SESSION['wichtel_username']);
 }
 
-if ($_POST['action'] ?? '' === 'reset') {
-    resetWichtelomat();
-    $message = "Wichtelomat wurde zurückgesetzt!";
-}
+// Get current data
+$participants = $session->getParticipants();
+$assignments = $session->getAssignments();
+$onlineUsers = $session->getOnlineUsers();
+$sessionInfo = $session->getSessionInfo();
+$status = $session->getStatus();
 
-$participants = getParticipants();
-$assignments = getAssignments();
+// Generate session link
+$sessionLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") 
+    . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'] . "?session=" . $sessionId;
 ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wichtelomat</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #c41e3a;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #c41e3a;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        button:hover {
-            background-color: #a01729;
-        }
-        .reset-btn {
-            background-color: #666;
-        }
-        .reset-btn:hover {
-            background-color: #555;
-        }
-        .message {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .participants-list {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-        .participants-list h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        .participant {
-            padding: 5px 0;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .participant:last-child {
-            border-bottom: none;
-        }
-        .assignments {
-            background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-            border: 1px solid #ffeaa7;
-        }
-        .assignments h3 {
-            margin-top: 0;
-            color: #856404;
-        }
-        .assignment {
-            padding: 8px 0;
-            border-bottom: 1px solid #ffeaa7;
-            font-weight: bold;
-        }
-        .assignment:last-child {
-            border-bottom: none;
-        }
-    </style>
+    <title>Wichtelomat - Moderne Wichtel-Verteilung</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
 </head>
 <body>
     <div class="container">
-        <h1>🎁 Wichtelomat 🎁</h1>
-        
-        <?php if ($message): ?>
-            <div class="message success"><?= htmlspecialchars($message) ?></div>
-        <?php endif; ?>
-        
-        <?php if ($error): ?>
-            <div class="message error"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-        
-        <?php if (empty($assignments)): ?>
-            <form method="post">
-                <div class="form-group">
-                    <label for="name">Name eingeben:</label>
-                    <input type="text" id="name" name="name" required>
+        <!-- Header -->
+        <div class="header">
+            <h1>🎁 Wichtelomat</h1>
+            <p class="subtitle">Moderne Wichtel-Verteilung für Teams</p>
+            
+            <?php if (!$isNewSession): ?>
+            <div class="session-info">
+                <div>
+                    <strong>Session:</strong> 
+                    <span class="session-id"><?= htmlspecialchars($sessionId) ?></span>
+                    <button id="copy-session-link" class="copy-btn" title="Session-Link kopieren">📋 Kopieren</button>
                 </div>
-                <button type="submit" name="action" value="add_participant">Teilnehmer hinzufügen</button>
-            </form>
-        <?php endif; ?>
-        
-        <?php if (!empty($participants)): ?>
-            <div class="participants-list">
-                <h3>Teilnehmer (<?= count($participants) ?>):</h3>
-                <?php foreach ($participants as $participant): ?>
-                    <div class="participant"><?= htmlspecialchars($participant) ?></div>
-                <?php endforeach; ?>
             </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($participants) && empty($assignments)): ?>
-            <form method="post">
-                <button type="submit" name="action" value="start_wichtelomat">Wichtelomat starten!</button>
-            </form>
-        <?php endif; ?>
-        
-        <?php if (!empty($assignments)): ?>
-            <div class="assignments">
-                <h3>🎯 Wichtel-Zuordnungen:</h3>
-                <?php foreach ($assignments as $assignment): ?>
-                    <div class="assignment"><?= htmlspecialchars($assignment) ?></div>
-                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Messages -->
+            <?php if ($message): ?>
+                <div class="alert alert-success"><?= $message ?></div>
+            <?php endif; ?>
+            
+            <?php if ($error): ?>
+                <div class="alert alert-danger"><?= $error ?></div>
+            <?php endif; ?>
+
+            <?php if ($isNewSession): ?>
+                <!-- New Session Welcome -->
+                <div class="alert alert-info">
+                    <strong>🎉 Neue Session erstellt!</strong><br>
+                    Teilen Sie diesen Link mit allen Teilnehmern:<br>
+                    <code><?= htmlspecialchars($sessionLink) ?></code>
+                    <button id="copy-session-link" class="copy-btn" style="margin-left: 10px;">📋 Link kopieren</button>
+                </div>
+            <?php endif; ?>
+
+            <!-- Statistics Bar -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-number" id="participant-count"><?= count($participants) ?></span>
+                    <span class="stat-label">Teilnehmer</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="online-count"><?= count($onlineUsers) ?></span>
+                    <span class="stat-label">Online</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number status-<?= $status ?>"><?= ucfirst($status) ?></span>
+                    <span class="stat-label">Status</span>
+                </div>
             </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($participants) || !empty($assignments)): ?>
-            <form method="post" style="margin-top: 30px;">
-                <button type="submit" name="action" value="reset" class="reset-btn" 
-                        onclick="return confirm('Wirklich alles zurücksetzen?')">Zurücksetzen</button>
-            </form>
-        <?php endif; ?>
-        
-        <!-- Debug Information -->
-        <div style="margin-top: 30px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px; color: #666;">
-            <strong>Debug Info:</strong><br>
-            Verzeichnis: <?= htmlspecialchars($baseDir) ?><br>
-            Participants-Datei: <?= htmlspecialchars($participantsFile) ?> 
-            <?= file_exists($participantsFile) ? '✅ existiert' : '❌ existiert nicht' ?><br>
-            Assignments-Datei: <?= htmlspecialchars($assignmentsFile) ?> 
-            <?= file_exists($assignmentsFile) ? '✅ existiert' : '❌ existiert nicht' ?><br>
-            Schreibberechtigung: <?= is_writable($baseDir) ? '✅ OK' : '❌ Fehler' ?>
+
+            <!-- Add Participant Form -->
+            <?php if ($status === 'waiting'): ?>
+            <div class="card">
+                <div class="card-header">
+                    <span>👤 Neuen Teilnehmer hinzufügen</span>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="add-participant-form">
+                        <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+                        <div class="form-group">
+                            <label for="participant-name" class="form-label">Dein Name:</label>
+                            <input type="text" 
+                                   id="participant-name" 
+                                   name="name" 
+                                   class="form-control" 
+                                   placeholder="Gib deinen Namen ein..."
+                                   required 
+                                   minlength="2" 
+                                   maxlength="50"
+                                   autocomplete="name">
+                        </div>
+                        <button type="submit" name="action" value="add_participant" class="btn btn-primary">
+                            👋 Ich bin dabei!
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Participants List -->
+            <?php if (!empty($participants)): ?>
+            <div class="card">
+                <div class="card-header">
+                    <span>👥 Teilnehmer (<?= count($participants) ?>)</span>
+                    <small style="float: right;">Letztes Update: <span id="last-update"><?= date('H:i:s') ?></span></small>
+                </div>
+                <div class="card-body">
+                    <div class="participants-grid" id="participants-list">
+                        <?php foreach ($participants as $participant): ?>
+                            <?php $isOnline = isset($onlineUsers[$participant['name']]); ?>
+                            <div class="participant-item <?= $isOnline ? 'online' : 'offline' ?>">
+                                <div class="participant-name">
+                                    <span class="status-indicator <?= $isOnline ? 'status-online' : 'status-offline' ?>"></span>
+                                    <?= htmlspecialchars($participant['name']) ?>
+                                </div>
+                                <div class="participant-status">
+                                    <?= $isOnline ? 'Online' : 'Offline' ?>
+                                    <?php if (!$isOnline && isset($participant['joined'])): ?>
+                                        <br><small>Beigetreten: <?= date('H:i', $participant['joined']) ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Control Buttons -->
+            <?php if (!empty($participants) && $status === 'waiting'): ?>
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+                        <button type="submit" 
+                                name="action" 
+                                value="start_wichtelomat" 
+                                class="btn btn-success"
+                                <?= count($participants) < 2 ? 'disabled' : '' ?>
+                                onclick="return confirm('Wichtelomat jetzt starten? Danach können keine weiteren Teilnehmer hinzugefügt werden!')">
+                            🎯 Wichtelomat starten!
+                        </button>
+                        <?php if (count($participants) < 2): ?>
+                            <small class="text-muted">Mindestens 2 Teilnehmer erforderlich</small>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Assignments Results -->
+            <?php if ($status === 'started' && !empty($assignments)): ?>
+            <div class="card">
+                <div class="card-header">
+                    <span>🎯 Wichtel-Zuordnungen</span>
+                </div>
+                <div class="card-body">
+                    <?php if (isset($_SESSION['wichtel_username'])): ?>
+                        <!-- Personal Assignment -->
+                        <div class="alert alert-info">
+                            <form method="post" style="display: inline;">
+                                <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+                                <button type="submit" name="action" value="get_my_assignment" class="btn btn-primary">
+                                    🎁 Meine Zuordnung anzeigen
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <details>
+                            <summary style="cursor: pointer; font-weight: bold; margin-bottom: 1rem;">
+                                📋 Alle Zuordnungen anzeigen (nur für Organisatoren)
+                            </summary>
+                    <?php endif; ?>
+                    
+                    <ul class="assignments-list">
+                        <?php foreach ($assignments as $assignment): ?>
+                            <li class="assignment-item">
+                                <?= htmlspecialchars($assignment['giver']) ?> 
+                                <strong>→</strong> 
+                                <?= htmlspecialchars($assignment['receiver']) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    
+                    <?php if (isset($_SESSION['wichtel_username'])): ?>
+                        </details>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Reset Section -->
+            <?php if (!empty($participants) || !empty($assignments)): ?>
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+                        <button type="submit" 
+                                name="action" 
+                                value="reset" 
+                                class="btn btn-danger"
+                                onclick="return confirm('⚠️ Wirklich alles zurücksetzen? Alle Teilnehmer und Zuordnungen werden gelöscht!')">
+                            🔄 Komplett zurücksetzen
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Auto-refresh Toggle -->
+            <div class="card">
+                <div class="card-body">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="auto-refresh" checked>
+                        <span>🔄 Automatische Aktualisierung</span>
+                    </label>
+                    <small class="text-muted">Zeigt neue Teilnehmer und Online-Status in Echtzeit an</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Wichtelomat v2.0 - Session: <?= htmlspecialchars($sessionId) ?> | 
+            Erstellt: <?= date('d.m.Y H:i', $sessionInfo['created']) ?></p>
         </div>
     </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Pass session data to JavaScript
+        window.wichtelomatData = {
+            sessionId: '<?= htmlspecialchars($sessionId) ?>',
+            username: '<?= htmlspecialchars($_SESSION['wichtel_username'] ?? '') ?>',
+            status: '<?= htmlspecialchars($status) ?>'
+        };
+    </script>
 </body>
 </html>
